@@ -41,12 +41,25 @@ spec:
         prometheus.io/port: "8000"
     spec:
       serviceAccountName: cloudnative-devopslab
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: app
           image: cloudnative-devopslab:local
           ports:
             - name: http
               containerPort: 8000
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           readinessProbe:
             httpGet:
               path: /readyz

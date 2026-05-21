@@ -58,6 +58,7 @@ spec:
               exec:
                 command: ["/bin/sh", "-c", "sleep 10"]
           securityContext:
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:

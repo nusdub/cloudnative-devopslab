@@ -59,6 +59,7 @@ spec:
               exec:
                 command: ["/bin/sh", "-c", "sleep {{ .Values.lifecycle.preStopSleepSeconds }}"]
           securityContext:
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
             capabilities:
