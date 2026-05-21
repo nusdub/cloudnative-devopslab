@@ -257,12 +257,13 @@ jobs:
           exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
 
       - name: Upload Trivy filesystem SARIF
-        if: always()
+        if: github.event_name == 'push'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-fs.sarif
 
       - name: Trivy image scan
+        if: github.event_name == 'push'
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ needs.container.outputs.image }}
@@ -273,7 +274,7 @@ jobs:
           exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
 
       - name: Upload Trivy image SARIF
-        if: always()
+        if: github.event_name == 'push'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-image.sarif
