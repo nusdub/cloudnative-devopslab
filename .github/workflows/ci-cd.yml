@@ -246,7 +246,7 @@ jobs:
           persist-credentials: false
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -264,7 +264,7 @@ jobs:
 
       - name: Trivy image scan
         if: github.event_name == 'push'
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ needs.container.outputs.image }}
           severity: CRITICAL,HIGH
@@ -294,7 +294,7 @@ jobs:
           persist-credentials: false
 
       - name: Create kind cluster
-        uses: helm/kind-action@v1.10.0
+        uses: helm/kind-action@v1.14.0
         with:
           cluster_name: devopslab
 
