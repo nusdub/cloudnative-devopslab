@@ -29,7 +29,12 @@ spec:
       serviceAccountName: {{ include "cloudnative-devopslab.fullname" . }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsNonRoot: true
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        seccompProfile:
+          type: {{ .Values.podSecurityContext.seccompProfile.type }}
       {{- if .Values.topologySpreadConstraints.enabled }}
       topologySpreadConstraints:
         - maxSkew: {{ .Values.topologySpreadConstraints.maxSkew }}
@@ -54,7 +59,13 @@ spec:
               exec:
                 command: ["/bin/sh", "-c", "sleep {{ .Values.lifecycle.preStopSleepSeconds }}"]
           securityContext:
-            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+            capabilities:
+              drop:
+                {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+                {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           startupProbe:

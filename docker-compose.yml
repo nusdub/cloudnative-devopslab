@@ -9,7 +9,7 @@ services:
       APP_VERSION: compose
       FAULT_MODE: "false"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      test: ["CMD", "python", "-c", "import http.client; conn = http.client.HTTPConnection('127.0.0.1', 8000, timeout=2); conn.request('GET', '/healthz'); response = conn.getresponse(); raise SystemExit(0 if response.status < 400 else 1)"]
       interval: 10s
       timeout: 3s
       retries: 3
