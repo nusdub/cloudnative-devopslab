@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-05-17T00:00:00Z",
+  "deployment": {
+    "namespace": "devopslab",
+    "deployment": "cloudnative-devopslab",
+    "replicas": 3,
+    "readyReplicas": 3,
+    "availableReplicas": 3,
+    "images": [
+      "ghcr.io/example/cloudnative-devopslab:sha-demo1234"
+    ],
+    "restartCount": 0
+  },
+  "slo": {
+    "error_ratio_5m": [
+      {
+        "metric": {
+          "job": "cloudnative-devopslab"
+        },
+        "value": [
+          1778976000,
+          "0.0002"
+        ]
+      }
+    ],
+    "p95_latency_seconds": [
+      {
+        "metric": {
+          "job": "cloudnative-devopslab"
+        },
+        "value": [
+          1778976000,
+          "0.12"
+        ]
+      }
+    ],
+    "burn_rate_5m": [
+      {
+        "metric": {
+          "job": "cloudnative-devopslab"
+        },
+        "value": [
+          1778976000,
+          "0.2"
+        ]
+      }
+    ]
+  },
+  "evidenceUse": "Attach this JSON to release records or incident reviews to correlate image, replicas and SLO state."
+}

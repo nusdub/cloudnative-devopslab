@@ -1,0 +1,23 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cloudnative-devopslab-network-delay
+  namespace: devopslab
+  labels:
+    app: cloudnative-devopslab
+    experiment: network-delay
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - devopslab
+    labelSelectors:
+      app: cloudnative-devopslab
+  delay:
+    latency: "250ms"
+    correlation: "50"
+    jitter: "50ms"
+  duration: "2m"
+  scheduler:
+    cron: "@once"

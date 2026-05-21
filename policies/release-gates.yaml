@@ -1,0 +1,40 @@
+checks:
+  min_replicas: 3
+  require_hpa: true
+  require_pdb: true
+  require_network_policy: true
+  require_service_monitor: true
+  require_resource_quota: true
+  require_non_root: true
+  require_readonly_rootfs: true
+  max_unavailable: 0
+  min_availability_slo_percent: 99.9
+  max_p95_latency_ms: 300
+  max_error_ratio_5m: 0.001
+  max_burn_rate_5m: 1.0
+  min_coverage_percent: 80
+  require_release_evidence: true
+risk_model:
+  low:
+    description: Documentation, tests or non-runtime changes.
+    required_gates:
+      - quality
+      - test
+  medium:
+    description: Application code, Helm values or observability rule changes.
+    required_gates:
+      - quality
+      - test
+      - security
+      - policy
+      - deploy-verify
+  high:
+    description: Container base image, RBAC, NetworkPolicy, production rollout or SLO threshold changes.
+    required_gates:
+      - quality
+      - test
+      - security
+      - policy
+      - deploy-verify
+      - release-gate
+      - evidence-bundle

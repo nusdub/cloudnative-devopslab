@@ -1,0 +1,44 @@
+replicaCount: 3
+
+image:
+  pullPolicy: IfNotPresent
+
+config:
+  APP_ENV: prod
+  SLO_AVAILABILITY_TARGET: "99.9"
+  SLO_LATENCY_P95_MS: "300"
+
+service:
+  type: ClusterIP
+  port: 80
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 55
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+serviceMonitor:
+  enabled: true
+
+resourceQuota:
+  enabled: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

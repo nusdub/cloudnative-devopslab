@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: cloudnative-devopslab-slo-check
+  namespace: devopslab
+spec:
+  args:
+    - name: service-name
+      value: cloudnative-devopslab
+  metrics:
+    - name: error-rate
+      interval: 30s
+      count: 3
+      successCondition: result[0] < 0.01
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(http_requests_total{status=~"5.."}[2m]))
+            /
+            clamp_min(sum(rate(http_requests_total[2m])), 0.001)
+    - name: p95-latency
+      interval: 30s
+      count: 3
+      successCondition: result[0] < 0.3
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(
+              0.95,
+              sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+            )

@@ -1,0 +1,86 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cloudnative-devopslab-production-guardrails
+  annotations:
+    policies.kyverno.io/title: Production guardrails for SRE release governance
+    policies.kyverno.io/category: Security, Reliability, Multi-Tenancy
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-non-root-readonly-rootfs
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - devopslab
+      validate:
+        message: "Pods must run as non-root and containers must use a read-only root filesystem."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                      - ALL
+    - name: require-requests-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - devopslab
+      validate:
+        message: "Every container must declare CPU and memory requests and limits for predictable scheduling."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+    - name: require-probes
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - devopslab
+      validate:
+        message: "Every application container must define readiness and liveness probes."
+        pattern:
+          spec:
+            containers:
+              - readinessProbe: "?*"
+                livenessProbe: "?*"
+    - name: disallow-latest-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - devopslab
+      validate:
+        message: "Mutable image tags such as latest are not allowed in release paths."
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"

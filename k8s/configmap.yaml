@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudnative-devopslab-config
+  namespace: devopslab
+data:
+  APP_ENV: "kubernetes"
+  APP_VERSION: "0.1.0"
+  GIT_SHA: "local"
+  IMAGE_DIGEST: "unknown"
+  FAULT_MODE: "false"
+  READINESS_ENABLED: "true"
+  SLOW_REQUEST_MS: "0"
+  SLO_AVAILABILITY_TARGET: "99.9"
+  SLO_LATENCY_P95_MS: "300"

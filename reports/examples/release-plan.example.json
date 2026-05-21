@@ -1,0 +1,53 @@
+{
+  "generatedAt": "2026-05-17T00:00:00Z",
+  "releaseCandidate": {
+    "image": "ghcr.io/example/cloudnative-devopslab:sha-demo1234",
+    "values": "helm/cloudnative-devopslab/values-prod.yaml"
+  },
+  "changeRisk": {
+    "risk": "high",
+    "requiredGates": [
+      "quality",
+      "test",
+      "security",
+      "policy",
+      "deploy-verify",
+      "release-gate",
+      "evidence-bundle"
+    ],
+    "description": "Container base image, RBAC, NetworkPolicy, production rollout or SLO threshold changes.",
+    "matched": [
+      {
+        "path": "Dockerfile",
+        "risk": "high"
+      }
+    ]
+  },
+  "productionReadiness": {
+    "ok": true,
+    "values": "helm/cloudnative-devopslab/values-prod.yaml",
+    "policy": "policies/release-gates.yaml",
+    "failures": []
+  },
+  "promotionStrategy": {
+    "type": "gitops-canary",
+    "stages": [
+      "dev",
+      "staging",
+      "prod"
+    ],
+    "runtimeDecision": "Promote only when release-gate returns promote and error budget is healthy."
+  },
+  "rollbackStrategy": {
+    "primary": "Argo Rollouts abort or kubectl rollout undo for the fallback Deployment path",
+    "evidence": "Generate evidence-bundle before and after rollback to preserve runtime context."
+  },
+  "requiredArtifacts": [
+    "coverage.xml",
+    "image-metadata.json",
+    "SBOM cyclonedx json",
+    "Trivy SARIF",
+    "release-evidence.json"
+  ],
+  "decision": "ready_for_pipeline"
+}

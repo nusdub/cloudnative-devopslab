@@ -1,0 +1,83 @@
+groups:
+  - name: cloudnative-devopslab.rules
+    rules:
+      - alert: ServiceUnavailable
+        expr: up{job=~"cloudnative-devopslab.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "CloudNative DevOpsLab target is down"
+          description: "Prometheus cannot scrape the application for more than 1 minute."
+          runbook_url: "docs/runbooks/service-unavailable.md"
+          dashboard_url: "http://localhost:3000/d/cloudnative-devopslab"
+
+      - alert: SLOFastBurnAvailability
+        expr: |
+          job:http_request_error_ratio:rate5m{job=~"cloudnative-devopslab.*"} > (14.4 * 0.001)
+          and
+          job:http_request_error_ratio:rate1h{job=~"cloudnative-devopslab.*"} > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          category: slo
+          slo: availability-99.9
+        annotations:
+          summary: "Availability SLO fast burn detected"
+          description: "The service is burning the 99.9% availability error budget too quickly over 5m and 1h windows."
+          runbook_url: "docs/runbooks/slo-fast-burn.md"
+          dashboard_url: "http://localhost:3000/d/cloudnative-devopslab"
+
+      - alert: SLOSlowBurnAvailability
+        expr: |
+          job:http_request_error_ratio:rate30m{job=~"cloudnative-devopslab.*"} > (6 * 0.001)
+          and
+          job:http_request_error_ratio:rate6h{job=~"cloudnative-devopslab.*"} > (6 * 0.001)
+        for: 15m
+        labels:
+          severity: warning
+          category: slo
+          slo: availability-99.9
+        annotations:
+          summary: "Availability SLO slow burn detected"
+          description: "The service is steadily consuming the 99.9% availability error budget over 30m and 6h windows."
+          runbook_url: "docs/runbooks/slo-slow-burn.md"
+          dashboard_url: "http://localhost:3000/d/cloudnative-devopslab"
+
+      - alert: HighP95Latency
+        expr: job:http_request_duration_seconds:p95:rate5m{job=~"cloudnative-devopslab.*"} > 0.3
+        for: 3m
+        labels:
+          severity: warning
+          category: latency
+          slo: latency-p95-300ms
+        annotations:
+          summary: "P95 latency is above 300ms"
+          description: "The service is violating its latency SLO. Check recent releases, saturation and dependency latency."
+          runbook_url: "docs/runbooks/high-latency.md"
+          dashboard_url: "http://localhost:3000/d/cloudnative-devopslab"
+
+      - alert: FaultModeEnabled
+        expr: fault_mode_enabled == 1
+        for: 30s
+        labels:
+          severity: critical
+          category: release
+        annotations:
+          summary: "Fault mode is enabled"
+          description: "Fault injection or a bad configuration is currently active. Restore FAULT_MODE=false and verify rollout status."
+          runbook_url: "docs/runbooks/fault-mode-enabled.md"
+          dashboard_url: "http://localhost:3000/d/cloudnative-devopslab"
+
+      - alert: PodRestartSpike
+        expr: increase(kube_pod_container_status_restarts_total{namespace="devopslab", pod=~"cloudnative-devopslab.*"}[10m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+          category: runtime
+        annotations:
+          summary: "Pod restart spike detected"
+          description: "Application pods restarted more than once within 10 minutes. Check recent rollout, OOMKilled events and liveness probe failures."
+          runbook_url: "docs/runbooks/service-unavailable.md"
+          dashboard_url: "http://localhost:3000/d/cloudnative-devopslab"

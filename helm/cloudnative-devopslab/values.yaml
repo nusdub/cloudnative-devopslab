@@ -1,0 +1,123 @@
+replicaCount: 2
+
+image:
+  repository: cloudnative-devopslab
+  tag: local
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30080
+
+config:
+  APP_ENV: helm
+  APP_VERSION: "0.1.0"
+  GIT_SHA: "local"
+  IMAGE_DIGEST: "unknown"
+  FAULT_MODE: "false"
+  READINESS_ENABLED: "true"
+  SLOW_REQUEST_MS: "0"
+  SLO_AVAILABILITY_TARGET: "99.9"
+  SLO_LATENCY_P95_MS: "300"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+terminationGracePeriodSeconds: 30
+
+lifecycle:
+  preStopSleepSeconds: 10
+
+topologySpreadConstraints:
+  enabled: true
+  maxSkew: 1
+  topologyKey: kubernetes.io/hostname
+  whenUnsatisfiable: ScheduleAnyway
+
+probes:
+  startup:
+    failureThreshold: 12
+    periodSeconds: 5
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 60
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      selectPolicy: Min
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  ingressNamespaceNames:
+    - ingress-nginx
+    - monitoring
+  allowSameNamespace: true
+  allowHttpsEgress: true
+
+serviceMonitor:
+  enabled: false
+  labels:
+    release: prometheus
+  interval: 15s
+  scrapeTimeout: 5s
+
+resourceQuota:
+  enabled: false
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "20"

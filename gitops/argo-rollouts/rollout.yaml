@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: cloudnative-devopslab
+  namespace: devopslab
+  labels:
+    app: cloudnative-devopslab
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: cloudnative-devopslab
+  strategy:
+    canary:
+      maxSurge: 1
+      maxUnavailable: 0
+      steps:
+        - setWeight: 10
+        - pause: {duration: 60s}
+        - analysis:
+            templates:
+              - templateName: cloudnative-devopslab-slo-check
+        - setWeight: 30
+        - pause: {duration: 60s}
+        - analysis:
+            templates:
+              - templateName: cloudnative-devopslab-slo-check
+        - setWeight: 60
+        - pause: {duration: 60s}
+        - analysis:
+            templates:
+              - templateName: cloudnative-devopslab-slo-check
+  template:
+    metadata:
+      labels:
+        app: cloudnative-devopslab
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8000"
+    spec:
+      serviceAccountName: cloudnative-devopslab
+      containers:
+        - name: app
+          image: cloudnative-devopslab:local
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5

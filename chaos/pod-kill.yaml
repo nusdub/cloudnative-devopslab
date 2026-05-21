@@ -1,0 +1,19 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: cloudnative-devopslab-pod-kill
+  namespace: devopslab
+  labels:
+    app: cloudnative-devopslab
+    experiment: pod-kill
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - devopslab
+    labelSelectors:
+      app: cloudnative-devopslab
+  duration: "30s"
+  scheduler:
+    cron: "@once"

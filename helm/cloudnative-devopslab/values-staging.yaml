@@ -1,0 +1,25 @@
+replicaCount: 2
+
+image:
+  pullPolicy: IfNotPresent
+
+config:
+  APP_ENV: staging
+  SLO_AVAILABILITY_TARGET: "99.9"
+  SLO_LATENCY_P95_MS: "300"
+
+service:
+  type: ClusterIP
+  port: 80
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 60
+
+serviceMonitor:
+  enabled: true
+
+resourceQuota:
+  enabled: true

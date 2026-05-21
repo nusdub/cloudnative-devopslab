@@ -1,0 +1,25 @@
+replicaCount: 1
+
+image:
+  tag: local
+  pullPolicy: IfNotPresent
+
+config:
+  APP_ENV: dev
+  APP_VERSION: "dev"
+  SLO_AVAILABILITY_TARGET: "99.0"
+  SLO_LATENCY_P95_MS: "500"
+
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30080
+
+autoscaling:
+  enabled: false
+
+serviceMonitor:
+  enabled: false
+
+resourceQuota:
+  enabled: false

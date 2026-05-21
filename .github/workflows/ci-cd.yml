@@ -1,0 +1,314 @@
+name: ci-cd
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch:
+    inputs:
+      deploy_to_kind:
+        description: "Run a local-kind deploy verification on the runner"
+        required: false
+        default: "false"
+
+env:
+  IMAGE_NAME: cloudnative-devopslab
+  REGISTRY: ghcr.io
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  quality:
+    name: quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Mypy type check
+        run: mypy app tests tools
+
+      - name: Opsctl help smoke test
+        run: python -m tools.opsctl --help
+
+      - name: Release policy smoke test
+        run: |
+          python -m tools.opsctl change-risk policies/release-gates.yaml
+          python -m tools.opsctl prod-readiness --values helm/cloudnative-devopslab/values-prod.yaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Helm template validation
+        run: |
+          helm lint helm/cloudnative-devopslab
+          helm template cloudnative-devopslab helm/cloudnative-devopslab --values helm/cloudnative-devopslab/values-dev.yaml > /tmp/cloudnative-devopslab.yaml
+
+  policy:
+    name: policy as code gates
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Production readiness policy
+        run: python -m tools.opsctl prod-readiness --values helm/cloudnative-devopslab/values-prod.yaml
+
+      - name: Change risk model example
+        run: python -m tools.opsctl change-risk Dockerfile policies/release-gates.yaml helm/cloudnative-devopslab/values-prod.yaml
+
+  test:
+    name: unit tests and coverage
+    runs-on: ubuntu-latest
+    needs: [quality, policy]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run tests with coverage threshold
+        run: pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: error
+
+  container:
+    name: build container image
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          IMAGE_REPO="${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/${IMAGE_NAME}"
+          IMAGE_TAG="sha-${GITHUB_SHA::12}"
+          echo "image=${IMAGE_REPO}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "repo=${IMAGE_REPO}" >> "$GITHUB_OUTPUT"
+          echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.image }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.tag }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+
+      - name: Generate image metadata artifact
+        run: |
+          mkdir -p reports
+          cat > reports/image-metadata.json <<EOF
+          {
+            "image": "${{ steps.meta.outputs.image }}",
+            "digest": "${{ steps.build.outputs.digest }}",
+            "commit": "${GITHUB_SHA}",
+            "ref": "${GITHUB_REF_NAME}",
+            "slsa_intent": "image is built from an immutable commit tag with BuildKit provenance enabled"
+          }
+          EOF
+
+      - name: Generate release evidence template
+        run: |
+          cat > reports/release-evidence-template.json <<EOF
+          {
+            "release_candidate": "${{ steps.meta.outputs.image }}",
+            "commit": "${GITHUB_SHA}",
+            "quality_gates": ["ruff", "ruff-format", "mypy", "pytest-coverage", "helm-lint"],
+            "security_gates": ["trivy-fs", "trivy-image", "sbom", "cosign-keyless-example"],
+            "runtime_gates": ["rollout-status", "smoke-test", "opsctl-release-gate"]
+          }
+          EOF
+          python -m tools.opsctl release-plan Dockerfile app/main.py policies/release-gates.yaml \
+            --image "${{ steps.meta.outputs.image }}" \
+            --values helm/cloudnative-devopslab/values-prod.yaml \
+            --output reports/release-plan.json
+
+      - name: Upload image metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-metadata
+          path: |
+            reports/image-metadata.json
+            reports/release-evidence-template.json
+            reports/release-plan.json
+
+  security:
+    name: security and supply-chain scan
+    runs-on: ubuntu-latest
+    needs: container
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
+
+      - name: Upload Trivy filesystem SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ needs.container.outputs.image }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+
+  deploy-verify:
+    name: kind deploy verification
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_to_kind == 'true'
+    needs: [quality, policy, test, container, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: devopslab
+
+      - name: Build and load local image
+        run: |
+          docker build -t cloudnative-devopslab:local .
+          kind load docker-image cloudnative-devopslab:local --name devopslab
+
+      - name: Deploy with rollback guard
+        run: bash scripts/deploy.sh cloudnative-devopslab:local
+
+      - name: Smoke test service
+        run: |
+          kubectl -n devopslab rollout status deployment/cloudnative-devopslab --timeout=120s
+          kubectl -n devopslab port-forward service/cloudnative-devopslab 8000:80 &
+          sleep 5
+          curl --fail http://127.0.0.1:8000/healthz
+          curl --fail http://127.0.0.1:8000/readyz

@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cloudnative-devopslab
+  namespace: devopslab
+  labels:
+    app: cloudnative-devopslab
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: cloudnative-devopslab
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 5s
