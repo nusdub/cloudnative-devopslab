@@ -247,7 +247,6 @@ jobs:
 
       - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@0.28.0
-        continue-on-error: true
         with:
           scan-type: fs
           scan-ref: .
@@ -255,7 +254,7 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy-fs.sarif
-          exit-code: "0"
+          exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
 
       - name: Upload Trivy filesystem SARIF
         if: github.event_name == 'push'
@@ -266,14 +265,13 @@ jobs:
       - name: Trivy image scan
         if: github.event_name == 'push'
         uses: aquasecurity/trivy-action@0.28.0
-        continue-on-error: true
         with:
           image-ref: ${{ needs.container.outputs.image }}
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           format: sarif
           output: trivy-image.sarif
-          exit-code: "0"
+          exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
 
       - name: Upload Trivy image SARIF
         if: github.event_name == 'push'

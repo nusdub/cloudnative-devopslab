@@ -48,7 +48,7 @@ jobs:
   sbom-and-signing-example:
     name: sbom and signing example
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch'
     timeout-minutes: 20
     permissions:
       contents: read
