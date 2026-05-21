@@ -246,7 +246,7 @@ jobs:
           persist-credentials: false
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           scan-type: fs
           scan-ref: .
@@ -264,7 +264,7 @@ jobs:
 
       - name: Trivy image scan
         if: github.event_name == 'push'
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: ${{ needs.container.outputs.image }}
           severity: CRITICAL,HIGH
