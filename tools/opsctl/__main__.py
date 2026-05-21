@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import http.client
 import json
 import math
 import subprocess
@@ -11,8 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
-from urllib.request import urlopen
+from urllib.parse import quote, urlparse
 
 import yaml
 
@@ -146,9 +146,20 @@ def release_status(namespace: str, deployment: str) -> int:
 
 
 def prometheus_query(base_url: str, query: str) -> Any:
-    url = f"{base_url.rstrip('/')}/api/v1/query?query={quote(query)}"
-    with urlopen(url, timeout=10) as response:
+    parsed = urlparse(base_url.rstrip("/"))
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("Prometheus base URL must be an http(s) URL")
+
+    path = f"{parsed.path.rstrip('/')}/api/v1/query?query={quote(query)}"
+    connection_class = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+    connection = connection_class(parsed.netloc, timeout=10)
+    try:
+        connection.request("GET", path)
+        response = connection.getresponse()
         payload = json.loads(response.read().decode("utf-8"))
+    finally:
+        connection.close()
+
     if payload.get("status") != "success":
         raise RuntimeError(json.dumps(payload, ensure_ascii=False))
     return payload["data"]["result"]

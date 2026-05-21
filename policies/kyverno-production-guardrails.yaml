@@ -43,6 +43,8 @@ spec:
         message: "Every container must declare CPU and memory requests and limits for predictable scheduling."
         pattern:
           spec:
+            securityContext:
+              runAsNonRoot: true
             containers:
               - resources:
                   requests:
@@ -63,6 +65,8 @@ spec:
         message: "Every application container must define readiness and liveness probes."
         pattern:
           spec:
+            securityContext:
+              runAsNonRoot: true
             containers:
               - readinessProbe: "?*"
                 livenessProbe: "?*"
